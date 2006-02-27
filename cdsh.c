@@ -22,6 +22,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include <assert.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,7 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 char* ngets(char* str, int max_chars);
 void parse_command(char* command_str);
-void execute_command(char* c_argv[], int c_argc, int fg);
+void execute_command(char* c_argv[], int c_argc, int fg, int in_fd, int out_fd);
 
 void builtin_set(char* c_argv[], int c_argc);
 void builtin_echo(char* c_argv[], int c_argc);
@@ -71,7 +73,7 @@ int main()
 }
 
 
-void execute_command(char* c_argv[], int c_argc, int fg)
+void execute_command(char* c_argv[], int c_argc, int fg, int in_fd, int out_fd)
 {
   /* Check for built-ins */
   if (strcmp(c_argv[0], "cd") == 0) {
@@ -94,7 +96,17 @@ void execute_command(char* c_argv[], int c_argc, int fg)
       fprintf(stderr, "Failed to fork()!  Aborting.");
       exit(EXIT_FAILURE);
     } else if (!c_pid) {
-      /* This is the child: exec() */
+      /* This is the child */
+      if (in_fd != 0) {
+        close(0);
+        dup(in_fd);
+      }
+
+      if (out_fd != 1) {
+        close(1);
+        dup(out_fd);
+      }
+
       execvp(c_argv[0], c_argv);
     }
 
@@ -115,40 +127,108 @@ void parse_command(char* command_str)
   /* We know that we have at least one character in here because we
      checked earlier, so we know that we have at least one token. */
   char* token = strtok(command_str, TOKEN_SEPARATOR);
+  int run_command = 0;
+  int no_more_commands = 0;
   int c_argc = 0; 
   int fg = 1;
+  int out_fd = STDOUT_FILENO;
+  int in_fd = STDIN_FILENO;
 
-  while (token != NULL)
+  for (;;)
     {
-      /* Do something with the tokens! */
-      c_argv[c_argc] = malloc(MAX_COMMAND_LENGTH*sizeof(char));
-      strcpy(c_argv[c_argc], token);
+      if (token == NULL)
+        {
+          no_more_commands = 1;
 
-      /* Is this token an ampersand */
-      int was_amp = ((strcmp(token, "&") == 0) ? 1 : 0);
+          run_command = 1;
+        }
+      else if (strcmp(token, "&") == 0)
+        {
+          fg = 0;
+          
+          run_command = 1;
+        }
+      else if (strcmp(token, ";") == 0)
+        {
+          run_command = 1;
+        }
+      else if (strcmp(token, ">") == 0)
+        {
+          char* out_name = strtok(NULL, TOKEN_SEPARATOR);
+          if (out_name == NULL)
+            {
+              fputs("Error: missing output redirection location\n", stderr);
+              break;
+            }
 
-      /* strtok() that the 2nd arg be NULL in subsequent calls*/
+          out_fd = open(out_name, O_CREAT | O_WRONLY);
+          if (out_fd == -1)
+            {
+              perror("open");
+              break;
+            }
+        }
+      else if (strcmp(token, "<") == 0)
+        {
+          char* in_name = strtok(NULL, TOKEN_SEPARATOR);
+          if (in_name == NULL)
+            {
+              fputs("Error: missing input redirection location\n", stderr);
+              break;
+            }
+
+          in_fd = open(in_name, O_RDONLY);
+          if (in_fd == -1)
+            {
+              perror("open");
+              break;
+            }
+        }
+      else
+        {
+          /* Do something with the tokens! */
+          c_argv[c_argc++] = strdup(token);
+        }
+
+      /* Run the command */
+      if (run_command && c_argc)
+        {
+          /* Terminate the arguments list with a NULL */
+          c_argv[c_argc] = NULL;
+          c_argc--; /* We have one less than it appears */
+
+          execute_command(c_argv, c_argc, fg, in_fd, out_fd);
+
+          /* free() the malloc'd memory */
+          int i;
+          for (i = 0; i <= c_argc; i++)
+            free(c_argv[i]);
+
+          /* Reset environment */
+          c_argc = 0;
+          run_command = 0;
+
+          if (out_fd != STDOUT_FILENO)
+            {
+              close(out_fd);
+              out_fd = STDOUT_FILENO;
+            }
+
+          if (in_fd != STDIN_FILENO)
+            {
+              close(in_fd);
+              in_fd = STDIN_FILENO;
+            }
+        }
+
+      if (no_more_commands)
+        {
+          return;
+        }
+
+      /* the lst arg must be NULL in subsequent calls to strtok() */
       token = strtok(NULL, TOKEN_SEPARATOR);
-      c_argc++;
-      
-      /* If the final token is an ampersand, run in bg */
-      if (was_amp && (token == NULL)) {
-        fg = 0;
-        c_argc--;
-        free(c_argv[c_argc]);
-      }
     }
-
-  /* Terminate the arguments list with a NULL */
-  c_argv[c_argc] = NULL;
-  c_argc--; /* We have one less than it appears */
-
-  execute_command(c_argv, c_argc, fg);
-
-  /* free() the malloc'd memory */
-  int i;
-  for (i = 0; i <= c_argc; i++)
-    free(c_argv[i]);
 }
 
 
