@@ -58,7 +58,7 @@ int main()
       if (ngets(command, MAX_COMMAND_LENGTH) == NULL) {
         /* They want to quit or the script has come to an end */
         quit_requested = 1;
-        printf("\n");
+        puts("\n");
       } else if (strlen(command) < 1) {
         /* They hit enter, so do nothing */
       } else {
@@ -68,6 +68,88 @@ int main()
     }
 
   return EXIT_SUCCESS;
+}
+
+
+void execute_command(char* c_argv[], int c_argc)
+{
+  /* Check for built-ins */
+  if (strcmp(c_argv[0], "cd") == 0) {
+    builtin_cd(c_argv, c_argc);
+  } else if (strcmp(c_argv[0], "set") == 0) {
+    builtin_set(c_argv, c_argc);
+  } else if (strcmp(c_argv[0], "echo") == 0) {
+    builtin_echo(c_argv, c_argc);
+  } else if (strcmp(c_argv[0], "pwd") == 0) {
+    builtin_pwd(c_argv, c_argc);
+  } else if ((strcmp(c_argv[0], "exit") == 0) ||
+             (strcmp(c_argv[0], "quit") == 0)) {
+    quit_requested = 1;
+  } else {
+    /* Not a built-in, so fork() and exec() it */
+    int c_pid = 0;
+    c_pid = fork();
+
+    if (c_pid == -1) {
+      fprintf(stderr, "Failed to fork()!  Aborting.");
+      exit(EXIT_FAILURE);
+    } else if (!c_pid) {
+      /* This is the child: exec() */
+      execvp(c_argv[0], c_argv);
+    }
+
+    /* This is the parent process */
+    wait(NULL);
+  }
+}
+
+
+void parse_command(char* command_str)
+{
+  /* Tokenize the string */
+  assert(strlen(command_str) > 0);
+
+  char* c_argv[MAX_COMMAND_ARGUMENTS];
+
+  /* We know that we have at least one character in here because we
+     checked earlier, so we know that we have at least one token. */
+  char* token = strtok(command_str, TOKEN_SEPARATOR);
+  int c_argc = 0; 
+
+  while (token != NULL)
+    {
+      /* Do something with the tokens! */
+      c_argv[c_argc] = malloc(MAX_COMMAND_LENGTH*sizeof(char));
+      strcpy(c_argv[c_argc], token);
+
+      /* strtok() that the 2nd arg be NULL in subsequent calls*/
+      token = strtok(NULL, TOKEN_SEPARATOR);
+      c_argc++;
+    }
+
+  /* Terminate the arguments list with a NULL */
+  c_argv[c_argc] = NULL;
+  c_argc--; /* We have one less than it appears */
+
+  execute_command(c_argv, c_argc);
+
+  /* free() the malloc'd memory */
+  int i;
+  for (i = 0; i <= c_argc; i++)
+    free(c_argv[i]);
+}
+
+
+/* Why doesn't this function exist already??? */
+char* ngets(char* str, int max_chars)
+{
+  char* fret = fgets(str, max_chars, stdin);
+
+  int i = strlen(str)-1;
+  if (str[i] == '\n')
+    str[i] = '\0';
+
+  return fret;
 }
 
 
@@ -118,86 +200,5 @@ void builtin_cd(char* c_argv[], int c_argc)
       printf("Could not change to directory \"%s\"\n", c_argv[1]);
     }
   }
-}
-
-
-void execute_command(char* c_argv[], int c_argc)
-{
-  /* Check for built-ins */
-  if (strcmp(c_argv[0], "cd") == 0) {
-    builtin_cd(c_argv, c_argc);
-  } else if (strcmp(c_argv[0], "set") == 0) {
-    builtin_set(c_argv, c_argc);
-  } else if (strcmp(c_argv[0], "echo") == 0) {
-    builtin_echo(c_argv, c_argc);
-  } else if (strcmp(c_argv[0], "pwd") == 0) {
-    builtin_pwd(c_argv, c_argc);
-  } else if ((strcmp(c_argv[0], "exit") == 0) ||
-             (strcmp(c_argv[0], "quit") == 0)) {
-    quit_requested = 1;
-  } else {
-    /* Not a built-in, so fork() and exec() it */
-    int c_pid = 0;
-    c_pid = fork();
-
-    if (c_pid == -1) {
-      fprintf(stderr, "Failed to fork()!  Aborting.");
-      exit(EXIT_FAILURE);
-    } else if (!c_pid) {
-      /* This is the child: exec() */
-      execvp(c_argv[0], c_argv);
-    }
-
-    /* This is the parent process */
-    wait(NULL);
-  }
-}
-
-void parse_command(char* command_str)
-{
-  /* Tokenize the string */
-  assert(strlen(command_str) > 0);
-
-  char* c_argv[MAX_COMMAND_ARGUMENTS];
-
-  /* We know that we have at least one character in here because we
-     checked earlier, so we know that we have at least one token. */
-  char* token = strtok(command_str, TOKEN_SEPARATOR);
-  int c_argc = 0; 
-
-  while (token != NULL)
-    {
-      /* Do something with the tokens! */
-      c_argv[c_argc] = malloc(MAX_COMMAND_LENGTH*sizeof(char));
-      strcpy(c_argv[c_argc], token);
-
-      /* strtok() that the 2nd arg be NULL in subsequent calls*/
-      token = strtok(NULL, TOKEN_SEPARATOR);
-      c_argc++;
-    }
-
-  /* Terminate the arguments list with a NULL */
-  c_argv[c_argc] = NULL;
-  c_argc--; /* We have one less than it appears */
-
-  execute_command(c_argv, c_argc);
-
-  /* free() the malloc'd memory */
-  int i;
-  for (i = 0; i <= c_argc; i++)
-    free(c_argv[i]);
-}
-
-
-/* Why doesn't this function exist already??? */
-char* ngets(char* str, int max_chars)
-{
-  char* fret = fgets(str, max_chars, stdin);
-
-  int i = strlen(str)-1;
-  if (str[i] == '\n')
-    str[i] = '\0';
-
-  return fret;
 }
 
