@@ -35,7 +35,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 char* ngets(char* str, int max_chars);
 void parse_command(char* command_str);
-void execute_command(char* c_argv[], int c_argc);
+void execute_command(char* c_argv[], int c_argc, int fg);
 
 void builtin_set(char* c_argv[], int c_argc);
 void builtin_echo(char* c_argv[], int c_argc);
@@ -71,7 +71,7 @@ int main()
 }
 
 
-void execute_command(char* c_argv[], int c_argc)
+void execute_command(char* c_argv[], int c_argc, int fg)
 {
   /* Check for built-ins */
   if (strcmp(c_argv[0], "cd") == 0) {
@@ -99,7 +99,8 @@ void execute_command(char* c_argv[], int c_argc)
     }
 
     /* This is the parent process */
-    wait(NULL);
+    if (fg)
+      wait(NULL);
   }
 }
 
@@ -115,6 +116,7 @@ void parse_command(char* command_str)
      checked earlier, so we know that we have at least one token. */
   char* token = strtok(command_str, TOKEN_SEPARATOR);
   int c_argc = 0; 
+  int fg = 1;
 
   while (token != NULL)
     {
@@ -122,16 +124,26 @@ void parse_command(char* command_str)
       c_argv[c_argc] = malloc(MAX_COMMAND_LENGTH*sizeof(char));
       strcpy(c_argv[c_argc], token);
 
+      /* Is this token an ampersand */
+      int was_amp = ((strcmp(token, "&") == 0) ? 1 : 0);
+
       /* strtok() that the 2nd arg be NULL in subsequent calls*/
       token = strtok(NULL, TOKEN_SEPARATOR);
       c_argc++;
+      
+      /* If the final token is an ampersand, run in bg */
+      if (was_amp && (token == NULL)) {
+        fg = 0;
+        c_argc--;
+        free(c_argv[c_argc]);
+      }
     }
 
   /* Terminate the arguments list with a NULL */
   c_argv[c_argc] = NULL;
   c_argc--; /* We have one less than it appears */
 
-  execute_command(c_argv, c_argc);
+  execute_command(c_argv, c_argc, fg);
 
   /* free() the malloc'd memory */
   int i;
