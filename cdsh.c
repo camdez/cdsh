@@ -133,9 +133,17 @@ void parse_command(char* command_str)
   int fg = 1;
   int out_fd = STDOUT_FILENO;
   int in_fd = STDIN_FILENO;
+  int next_in_fd = -1;
 
   for (;;)
     {
+      if (next_in_fd != -1)
+        {
+          in_fd = next_in_fd;
+
+          next_in_fd = -1;
+        }
+
       if (token == NULL)
         {
           no_more_commands = 1;
@@ -152,7 +160,21 @@ void parse_command(char* command_str)
         {
           run_command = 1;
         }
-      else if (strcmp(token, ">") == 0)
+      else if ((strcmp(token, "|") == 0) && (out_fd == STDOUT_FILENO))
+        {
+          int pipe_fds[2];
+          if (pipe(pipe_fds) == -1)
+            {
+              perror("pipe");
+              break;
+            }
+
+          out_fd = pipe_fds[1];
+          next_in_fd = pipe_fds[0];
+
+          run_command = 1;
+        }
+      else if ((strcmp(token, ">") == 0) && (out_fd == STDOUT_FILENO))
         {
           char* out_name = strtok(NULL, TOKEN_SEPARATOR);
           if (out_name == NULL)
@@ -168,7 +190,7 @@ void parse_command(char* command_str)
               break;
             }
         }
-      else if (strcmp(token, "<") == 0)
+      else if ((strcmp(token, "<") == 0) && (in_fd == STDIN_FILENO))
         {
           char* in_name = strtok(NULL, TOKEN_SEPARATOR);
           if (in_name == NULL)
