@@ -183,7 +183,7 @@ void parse_command(char* command_str)
               break;
             }
 
-          out_fd = open(out_name, O_CREAT | O_WRONLY);
+          out_fd = open(out_name, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
           if (out_fd == -1)
             {
               perror("open");
