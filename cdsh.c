@@ -268,7 +268,11 @@ void builtin_echo(char* c_argv[], int c_argc)
   int i;
   for (i = 1; i <= c_argc; i++)
     {
-      printf("%s", c_argv[i]);
+      if (i == c_argc) {
+        printf("%s", c_argv[i]);
+      } else {
+        printf("%s ", c_argv[i]);
+      }
     }
 
   printf("\n");
