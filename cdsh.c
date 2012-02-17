@@ -214,6 +214,7 @@ void parse_command(char* command_str)
           /* Reset environment */
           c_argc = 0;
           run_command = 0;
+          fg = 1;
 
           if (out_fd != STDOUT_FILENO)
             {
