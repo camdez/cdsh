@@ -1,24 +1,9 @@
 /*
 
-cdsh - a simple *nix shell for education purposes
-Copyright (C) 2005 Cameron Desautels <cam@apt2324.com>
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+cdsh - a simple *nix shell for educational purposes
+Copyright (C) 2005 Cameron Desautels <camdez@gmail.com>
 
 */
-
 
 #include <assert.h>
 #include <sys/types.h>
@@ -51,7 +36,7 @@ int main()
   while (!quit_requested)
     {
       /* Print prompt */
-      /* TODO: see if we can take if from $PS1 */
+      /* TODO: see if we can take it from $PS1 */
       printf(PROMPT, getenv("PWD"));
 
       /* Read in command */
@@ -129,7 +114,7 @@ void parse_command(char* command_str)
   char* token = strtok(command_str, TOKEN_SEPARATOR);
   int run_command = 0;
   int no_more_commands = 0;
-  int c_argc = 0; 
+  int c_argc = 0;
   int fg = 1;
   int out_fd = STDOUT_FILENO;
   int in_fd = STDIN_FILENO;
@@ -153,7 +138,7 @@ void parse_command(char* command_str)
       else if (strcmp(token, "&") == 0)
         {
           fg = 0;
-          
+
           run_command = 1;
         }
       else if (strcmp(token, ";") == 0)
@@ -315,4 +300,3 @@ void builtin_cd(char* c_argv[], int c_argc)
     }
   }
 }
-
